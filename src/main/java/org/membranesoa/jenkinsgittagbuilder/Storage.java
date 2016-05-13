@@ -25,34 +25,35 @@ public class Storage {
         if (allTags.isEmpty())
             return allTags;
 
-        HashSet<String> old = new HashSet<String>();
-        if (knownTags.exists()) {
-            try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(knownTags.read(), "UTF-8"))) {
-                while (true) {
-                    String line = bufferedReader.readLine();
-                    if (line == null)
-                        break;
-                    else
-                        old.add(line);
+        synchronized (Storage.class) {
+
+            HashSet<String> old = new HashSet<String>();
+            if (knownTags.exists()) {
+                try (BufferedReader bufferedReader = new BufferedReader(new InputStreamReader(knownTags.read(), "UTF-8"))) {
+                    while (true) {
+                        String line = bufferedReader.readLine();
+                        if (line == null)
+                            break;
+                        else
+                            old.add(line);
+                    }
                 }
+
+                for (String tag : old)
+                    allTags.remove(tag);
+                for (String tag : allTags)
+                    old.add(tag);
+            } else {
+                old.addAll(allTags);
+                allTags.clear();
             }
 
-            for (String tag : old)
-                allTags.remove(tag);
-            for (String tag : allTags)
-                old.add(tag);
-        } else {
-            old.addAll(allTags);
-            allTags.clear();
-        }
+            try (OutputStreamWriter fr = new OutputStreamWriter(knownTags.write(), "UTF-8")) {
+                for (String tag : old)
+                    fr.write(tag + System.lineSeparator());
+            }
 
-        File temp = File.createTempFile("knownTags", "txt", new File(workspace.toURI()));
-        try (OutputStreamWriter fr = new OutputStreamWriter(new FileOutputStream(temp), "UTF-8")) {
-            for (String tag : old)
-                fr.write(tag + System.lineSeparator());
         }
-        temp.renameTo(new File(knownTags.toURI()));
-
         return allTags;
     }
 }

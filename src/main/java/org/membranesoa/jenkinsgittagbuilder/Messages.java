@@ -29,7 +29,7 @@ public class Messages {
     }
 
     public static String GitTagTrigger_BuildAction_DisplayName() {
-        return "GTT BuildAction DisplayName";
+        return "Git Tag Polling Log"; // menu item on page describing a build
     }
 
     public static String GitTagTrigger_getDisplayName(String displayName) {
@@ -37,6 +37,6 @@ public class Messages {
     }
 
     public static String GitTagTrigger_GitTagTriggerCause_ShortDescription() {
-        return "GTT Description";
+        return "New Git Tag detected.";
     }
 }

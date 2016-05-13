@@ -66,6 +66,8 @@ import java.util.concurrent.Executors;
 import java.util.concurrent.ThreadFactory;
 import java.util.logging.Level;
 import java.util.logging.Logger;
+import java.util.regex.Pattern;
+
 import jenkins.model.Jenkins;
 import net.sf.json.JSONObject;
 import org.kohsuke.accmod.restrictions.NoExternalUse;
@@ -90,14 +92,17 @@ import jenkins.model.RunAction2;
 public class GitTagTrigger extends Trigger<Item> {
     
     private boolean ignorePostCommitHooks;
-    
+
+    private String tagFilter;
+
     public GitTagTrigger(String scmpoll_spec) throws ANTLRException {
-        this(scmpoll_spec, false);
+        this("", scmpoll_spec, false);
     }
     
     @DataBoundConstructor
-    public GitTagTrigger(String scmpoll_spec, boolean ignorePostCommitHooks) throws ANTLRException {
+    public GitTagTrigger(String tagFilter, String scmpoll_spec, boolean ignorePostCommitHooks) throws ANTLRException {
         super(scmpoll_spec);
+        this.tagFilter = tagFilter;
         this.ignorePostCommitHooks = ignorePostCommitHooks;
     }
     
@@ -111,6 +116,11 @@ public class GitTagTrigger extends Trigger<Item> {
     public boolean isIgnorePostCommitHooks() {
         return this.ignorePostCommitHooks;
     }
+
+    public final String getTagFilter() {
+        return tagFilter;
+    }
+
 
     @Override
     public void run() {
@@ -517,8 +527,7 @@ public class GitTagTrigger extends Trigger<Item> {
                     PrintStream logger = listener.getLogger();
                     long start = System.currentTimeMillis();
                     logger.println("Started on "+ DateFormat.getDateTimeInstance().format(new Date()));
-                    Set<String> newTags = job().poll(listener);
-
+                    Set<String> newTags = filterTags(job().poll(listener));
                     logger.println("Done. Took "+ Util.getTimeSpanString(System.currentTimeMillis()-start));
                     if(newTags.size() > 0)
                         logger.println("Changes found");
@@ -582,6 +591,17 @@ public class GitTagTrigger extends Trigger<Item> {
         public int hashCode() {
             return job.hashCode();
         }
+    }
+
+    private Set<String> filterTags(Set<String> tags) {
+        if (tagFilter == null || tagFilter.equals(""))
+            return tags;
+        Pattern pattern = Pattern.compile(tagFilter);
+        HashSet<String> res = new HashSet<>();
+        for (String tag : tags)
+            if (pattern.matcher(tag).matches())
+                res.add(tag);
+        return res;
     }
 
     @SuppressWarnings("deprecation")
