@@ -15,11 +15,11 @@ Currently, it is barely functional.
 * Install the plugin.
 
 * Setup a FreeStyleProject.
-** Select "This build is parameterized" and add a String parameter called "tagName".
-** Do not check "Execute concurrent builds if necessary". (This plugin does currently not work with concurrent builds.)
-** Select "Git" as Source Code Management and configure your repository.
-*** Enter "refs/tags/${tagName}" as Branch Specifier.
-** Check "Poll Git Repo for new Tags" and provide a schedule when to poll the git repo (e.g. "* * * * *" to poll every minute).
+ * Select "This build is parameterized" and add a String parameter called "tagName".
+ * Do not check "Execute concurrent builds if necessary". (This plugin does currently not work with concurrent builds.)
+ * Select "Git" as Source Code Management and configure your repository.
+  * Enter "refs/tags/${tagName}" as Branch Specifier.
+ * Check "Poll Git Repo for new Tags" and provide a schedule when to poll the git repo (e.g. "* * * * *" to poll every minute).
 
 ## Notes
 
