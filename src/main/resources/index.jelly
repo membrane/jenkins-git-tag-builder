@@ -1,0 +1,4 @@
+<?jelly escape-by-default='true'?>
+<div>
+  Polling a git repo for new tags, triggering the Job with parameter "tagName".
+</div>
