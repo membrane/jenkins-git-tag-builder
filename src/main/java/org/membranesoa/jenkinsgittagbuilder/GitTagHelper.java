@@ -171,19 +171,25 @@ public class GitTagHelper {
 
         GitClient git = scm.createClient(listener, pollEnv, lastRun, lastRun.getWorkspace());
 
-        HashSet<String> result = new HashSet<>();
-        for (String tag : git.getRemoteTagNames(null))
-            if (!tag.contains("^{}"))
-                result.add(tag);
-        return result;
-    }
 
-    private static List<RefSpec> getRefSpecs(GitSCM scm, RemoteConfig repo, EnvVars env) {
-        List<RefSpec> refSpecs = new ArrayList<RefSpec>();
-        for (RefSpec refSpec : repo.getFetchRefSpecs()) {
-            refSpecs.add(new RefSpec(scm.getParameterString(refSpec.toString(), env)));
+        for (RemoteConfig remoteConfig : scm.getParamExpandedRepos(lastRun, listener)) {
+            for (URIish urIish : remoteConfig.getURIs()) {
+                String gitRepo = urIish.toString();
+
+
+                HashSet<String> result = new HashSet<>();
+                for (String tag : git.getRemoteReferences(gitRepo, null, false, true).keySet())
+                    if (!tag.contains("^{}")) {
+                        if (tag.startsWith("refs/tags/"))
+                            tag = tag.substring(10);
+                        result.add(tag);
+                    }
+                return result;
+            }
         }
-        return refSpecs;
+
+        listener.error("No URIish in RemoteConfig found.");
+        return new HashSet<>();
     }
 
 
