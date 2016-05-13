@@ -8,11 +8,12 @@ Currently, it is barely functional.
 ## Requirements
 
 * Jenkins 1.642.4 or above
-* Jenkins Git Plugin 2.4.5 or above.
+* Jenkins Git Plugin 2.4.4 or above.
 
 ## Setup
 
 * Grab the latest version of this plugin from [our releases page] (https://github.com/membrane/jenkins-git-tag-builder/releases) and put the .hpi file into the "plugins" subdirectory of your Jenkins.
+* Restart Jenkins to activate the plugin.
 
 * Setup a FreeStyleProject.
  * Select "This build is parameterized" and add a String parameter called "tagName".
