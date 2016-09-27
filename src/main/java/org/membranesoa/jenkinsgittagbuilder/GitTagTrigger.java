@@ -565,10 +565,11 @@ public class GitTagTrigger extends Trigger<Item> {
                         LOGGER.log(WARNING, "Failed to parse the polling log",e);
                         cause = new GitTagTriggerCause();
                     }
-                    Action[] queueActions = new Action[additionalActions.length + 2];
+                    Action[] queueActions = new Action[additionalActions.length + 3];
                     queueActions[0] = new CauseAction(cause);
                     queueActions[1] = new ParametersAction(new TextParameterValue("tagName", tag));
-                    System.arraycopy(additionalActions, 0, queueActions, 1, additionalActions.length);
+                    queueActions[2] = new ParametersAction(getDefaultParametersValues());
+                    System.arraycopy(additionalActions, 0, queueActions, 3, additionalActions.length);
                     if (p.scheduleBuild2(p.getQuietPeriod(), queueActions) != null) {
                         LOGGER.info("New Git Tags changes detected in "+ job.getFullDisplayName()+". Triggering build.");
                     } else {
@@ -578,6 +579,29 @@ public class GitTagTrigger extends Trigger<Item> {
             } finally {
                 Thread.currentThread().setName(threadName);
             }
+        }
+
+        private List<ParameterValue> getDefaultParametersValues() {
+            ParametersDefinitionProperty paramDefProp = ((FreeStyleProject)job).getProperty(ParametersDefinitionProperty.class);
+            ArrayList<ParameterValue> defValues = new ArrayList<ParameterValue>();
+
+        /*
+         * This check is made ONLY if someone will call this method even if isParametrized() is false.
+         */
+            if(paramDefProp == null)
+                return defValues;
+
+        /* Scan for all parameter with an associated default values */
+            for(ParameterDefinition paramDefinition : paramDefProp.getParameterDefinitions())
+            {
+                ParameterValue defaultValue  = paramDefinition.getDefaultParameterValue();
+
+	            if (paramDefinition.getName().equals("tagName")) continue;
+                if(defaultValue != null)
+                    defValues.add(defaultValue);
+            }
+
+            return defValues;
         }
 
         // as per the requirement of SequentialExecutionQueue, value equality is necessary
