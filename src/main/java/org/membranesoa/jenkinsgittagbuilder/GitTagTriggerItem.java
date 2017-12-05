@@ -34,10 +34,7 @@ import hudson.scm.PollingResult;
 import hudson.scm.SCM;
 
 import java.io.IOException;
-import java.util.Collection;
-import java.util.Collections;
-import java.util.HashSet;
-import java.util.Set;
+import java.util.*;
 import java.util.logging.Level;
 import java.util.logging.Logger;
 import javax.annotation.CheckForNull;
@@ -119,6 +116,9 @@ public interface GitTagTriggerItem {
             @Override public QueueTaskFuture<?> scheduleBuild2(int quietPeriod, Action... actions) {
                 return delegate.asProject().scheduleBuild2(quietPeriod, null, actions);
             }
+
+            HashMap<String, Object> locks = new HashMap<>();
+
             @Override public Set<String> poll(TaskListener listener) {
                 //was previously: return delegate.poll(listener);
 
@@ -133,12 +133,25 @@ public interface GitTagTriggerItem {
 
                         try {
 
-                            Set<String> tags = GitTagHelper.pollTags(delegate.asProject(), git, listener);
-                            if (delegate.asProject().getLastBuild() == null ||
-                                    delegate.asProject().getLastBuild().getWorkspace() == null)
-                                return new HashSet<>();
-                            Storage storage = new Storage(delegate.asProject().getLastBuild().getWorkspace());
-                            tags = storage.storeNewTags(tags);
+                            Object lock;
+                            String projectName = delegate.asProject().getName();
+                            synchronized (locks) {
+                                lock = locks.get(projectName);
+                                if (lock == null) {
+                                    lock = new Object();
+                                    locks.put(projectName, lock);
+                                }
+                            }
+
+                            Set<String> tags;
+                            synchronized (lock) {
+                                tags = GitTagHelper.pollTags(delegate.asProject(), git, listener);
+                                if (delegate.asProject().getLastBuild() == null ||
+                                        delegate.asProject().getLastBuild().getWorkspace() == null)
+                                    return new HashSet<>();
+                                Storage storage = new Storage(delegate.asProject().getLastBuild().getWorkspace());
+                                tags = storage.storeNewTags(tags);
+                            }
 
                             return tags;
 
