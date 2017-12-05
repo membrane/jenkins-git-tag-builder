@@ -6,7 +6,9 @@
   <parent>
     <groupId>org.jenkins-ci.plugins</groupId>
     <artifactId>plugin</artifactId>
-    <version>1.642.4</version>
+    <version>1.645</version>
+    <!--<version>3.1</version>-->
+    <!--<version>1.642.4</version>-->
     <!--<version>1.580.1</version> -->
     <relativePath/>
   </parent>
@@ -14,6 +16,11 @@
   <artifactId>jenkins-git-tag-builder</artifactId>
   <version>1.0.0</version>
   <packaging>hpi</packaging>
+
+    <properties>
+    <maven.compiler.source>1.7</maven.compiler.source>
+    <maven.compiler.target>1.7</maven.compiler.target>
+  </properties>
 
   <name>Jenkins Git Tag Plugin</name>
   <description>A Jenkins plugin, which polls a GIT repo for new tags. When a new tag is found, a job is triggered, building the tagged code.</description>
