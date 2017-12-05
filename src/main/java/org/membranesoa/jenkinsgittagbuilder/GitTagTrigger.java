@@ -34,7 +34,9 @@ import hudson.ExtensionList;
 import hudson.ExtensionListListener;
 import hudson.Util;
 import hudson.console.AnnotatedLargeText;
+import hudson.init.Initializer;
 import hudson.model.*;
+import hudson.plugins.git.GitSCM;
 import hudson.plugins.git.GitStatus;
 import hudson.scm.SCM;
 import hudson.scm.SCMDescriptor;
@@ -50,6 +52,7 @@ import hudson.util.TimeUnit2;
 
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.jelly.XMLOutput;
+import org.eclipse.jgit.transport.RemoteConfig;
 import org.eclipse.jgit.transport.URIish;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
@@ -77,12 +80,14 @@ import java.util.logging.Logger;
 import java.util.regex.Pattern;
 
 import jenkins.model.Jenkins;
+import jenkins.triggers.SCMTriggerItem;
 import net.sf.json.JSONObject;
 
 import org.kohsuke.accmod.restrictions.NoExternalUse;
 import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerResponse;
 
+import static hudson.init.InitMilestone.JOB_LOADED;
 import static java.util.logging.Level.*;
 
 import javax.annotation.Nullable;
@@ -105,14 +110,13 @@ public class GitTagTrigger extends Trigger<Item> {
 
     private String tagFilter;
 
-    public GitTagTrigger(String scmpoll_spec) throws ANTLRException {
-        this("", scmpoll_spec, false);
-        init();
-    }
+    @Initializer(after = JOB_LOADED)
+    public static void setup() throws IOException {
+        Jenkins instance = Jenkins.getInstance();
+        if (instance == null)
+            return;
 
-    private void init() {
-        System.out.println("GitTagTrigger.init");
-        ExtensionList<GitStatus.Listener> extensionList = Jenkins.getInstance().getExtensionList(GitStatus.Listener.class);
+        ExtensionList<GitStatus.Listener> extensionList = instance.getExtensionList(GitStatus.Listener.class);
 
         boolean found = false;
         for (GitStatus.Listener listener : extensionList) {
@@ -124,12 +128,15 @@ public class GitTagTrigger extends Trigger<Item> {
             extensionList.add(0, new MyListener());
     }
 
+    public GitTagTrigger(String scmpoll_spec) throws ANTLRException {
+        this("", scmpoll_spec, false);
+    }
+
     @DataBoundConstructor
     public GitTagTrigger(String tagFilter, String scmpoll_spec, boolean ignorePostCommitHooks) throws ANTLRException {
         super(scmpoll_spec);
         this.tagFilter = tagFilter;
         this.ignorePostCommitHooks = ignorePostCommitHooks;
-        init();
     }
 
     /**
@@ -724,11 +731,52 @@ public class GitTagTrigger extends Trigger<Item> {
      */
     public static long STARVATION_THRESHOLD = Long.getLong(GitTagTrigger.class.getName() + ".starvationThreshold", TimeUnit2.HOURS.toMillis(1));
 
-    private class MyListener extends GitStatus.Listener {
+    private static class MyListener extends GitStatus.Listener {
 
         public List<GitStatus.ResponseContributor> onNotifyCommit(String origin, URIish uri, @Nullable String sha1, List<ParameterValue> buildParameters, String... branches) {
-            System.out.println("origin = [" + origin + "], uri = [" + uri + "], sha1 = [" + sha1 + "], buildParameters = [" + buildParameters + "], branches = [" + branches + "]");
-            run();
+            
+            List<GitStatus.ResponseContributor> result = new ArrayList<>();
+            Jenkins jenkins = Jenkins.getInstance();
+            if (jenkins == null) {
+                LOGGER.severe("Jenkins.getInstance() is null in GitStatus.onNotifyCommit");
+                return result;
+            }
+            for (final Item project : jenkins.getAllItems()) {
+                SCMTriggerItem scmTriggerItem = SCMTriggerItem.SCMTriggerItems.asSCMTriggerItem(project);
+                if (scmTriggerItem == null) {
+                    continue;
+                }
+
+                for (SCM scm : scmTriggerItem.getSCMs()) {
+                    if (scm instanceof GitSCM) {
+                        GitTagTriggerItem gitTagTriggerItem = GitTagTriggerItem.GitTagTriggerItems.asGitTagTriggerItem(project);
+                        if (gitTagTriggerItem != null) {
+
+                            for (RemoteConfig remoteConfig : ((GitSCM) scm).getRepositories()) {
+                                List<URIish> urIs = remoteConfig.getURIs();
+
+                                for (URIish is : urIs) {
+                                    if (project instanceof FreeStyleProject) {
+                                        FreeStyleProject fp = (FreeStyleProject) project;
+                                        GitTagTrigger trigger = fp.getTrigger(GitTagTrigger.class);
+
+                                        if (trigger != null && uri != null && uri.toASCIIString().equalsIgnoreCase(is.toASCIIString())) {
+                                            LOGGER.info("Found Git Tag Trigger");
+                                            trigger.run();
+                                        }
+
+                                    }
+
+                                }
+                            }
+                        }
+
+
+                    }
+                }
+
+
+            }
 
 
             return Arrays.asList((GitStatus.ResponseContributor) new GitStatus.MessageResponseContributor("Demo 111"));
