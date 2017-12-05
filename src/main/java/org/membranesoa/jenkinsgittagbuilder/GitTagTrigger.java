@@ -28,9 +28,12 @@ package org.membranesoa.jenkinsgittagbuilder;
 import antlr.ANTLRException;
 import com.google.common.base.Preconditions;
 import hudson.Extension;
+import hudson.ExtensionList;
+import hudson.ExtensionListListener;
 import hudson.Util;
 import hudson.console.AnnotatedLargeText;
 import hudson.model.*;
+import hudson.plugins.git.GitStatus;
 import hudson.scm.SCM;
 import hudson.scm.SCMDescriptor;
 import hudson.triggers.Trigger;
@@ -44,6 +47,7 @@ import hudson.util.StreamTaskListener;
 import hudson.util.TimeUnit2;
 import org.apache.commons.io.FileUtils;
 import org.apache.commons.jelly.XMLOutput;
+import org.eclipse.jgit.transport.URIish;
 import org.kohsuke.accmod.Restricted;
 import org.kohsuke.accmod.restrictions.DoNotUse;
 import org.kohsuke.stapler.StaplerRequest;
@@ -55,6 +59,7 @@ import java.io.PrintStream;
 import java.nio.charset.Charset;
 import java.text.DateFormat;
 import java.util.ArrayList;
+import java.util.Arrays;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.Date;
@@ -75,6 +80,9 @@ import org.kohsuke.stapler.QueryParameter;
 import org.kohsuke.stapler.StaplerResponse;
 
 import static java.util.logging.Level.*;
+
+import javax.annotation.Nullable;
+
 import jenkins.model.RunAction2;
 
 
@@ -84,33 +92,49 @@ import jenkins.model.RunAction2;
  * You can add UI elements under the SCM section by creating a
  * config.jelly or config.groovy in the resources area for
  * your class that inherits from GitTagTrigger and has the
- * @{@link hudson.model.Extension} annotation. The UI should 
+ * @{@link hudson.model.Extension} annotation. The UI should
  * be wrapped in an f:section element to denote it.
  *
  * @author Kohsuke Kawaguchi
  */
 public class GitTagTrigger extends Trigger<Item> {
-    
+
     private boolean ignorePostCommitHooks;
 
     private String tagFilter;
 
     public GitTagTrigger(String scmpoll_spec) throws ANTLRException {
         this("", scmpoll_spec, false);
+        init();
     }
-    
+
+    private void init() {
+        System.out.println("GitTagTrigger.init");
+        ExtensionList<GitStatus.Listener> extensionList = Jenkins.getInstance().getExtensionList(GitStatus.Listener.class);
+
+        boolean found = false;
+        for (GitStatus.Listener listener : extensionList) {
+            if (listener instanceof MyListener)
+                found = true;
+        }
+
+        if (!found)
+            extensionList.add(0, new MyListener());
+    }
+
     @DataBoundConstructor
     public GitTagTrigger(String tagFilter, String scmpoll_spec, boolean ignorePostCommitHooks) throws ANTLRException {
         super(scmpoll_spec);
         this.tagFilter = tagFilter;
         this.ignorePostCommitHooks = ignorePostCommitHooks;
+        init();
     }
-    
+
     /**
      * This trigger wants to ignore post-commit hooks.
      * <p>
      * SCM plugins must respect this and not run this trigger for post-commit notifications.
-     * 
+     *
      * @since 1.493
      */
     public boolean isIgnorePostCommitHooks() {
@@ -134,7 +158,7 @@ public class GitTagTrigger extends Trigger<Item> {
     /**
      * Run the SCM trigger with additional build actions. Used by SubversionRepositoryStatus
      * to trigger a build at a specific revisionn number.
-     * 
+     *
      * @param additionalActions
      * @since 1.375
      */
@@ -347,7 +371,7 @@ public class GitTagTrigger extends Trigger<Item> {
             this.run = run;
             build = run instanceof AbstractBuild ? (AbstractBuild) run : null;
         }
-        
+
         @Deprecated
         public BuildAction(AbstractBuild build) {
             this((Run) build);
@@ -396,7 +420,7 @@ public class GitTagTrigger extends Trigger<Item> {
         public AnnotatedLargeText getPollingLogText() {
             return new AnnotatedLargeText<BuildAction>(getPollingLogFile(), Charset.defaultCharset(), true, this);
         }
-        
+
         /**
          * Used from <tt>polling.jelly</tt> to write annotated polling log to the given output.
          */
@@ -477,7 +501,7 @@ public class GitTagTrigger extends Trigger<Item> {
         public Runner() {
             this(null);
         }
-        
+
         public Runner(Action[] actions) {
             Preconditions.checkNotNull(job, "Runner can't be instantiated when job is null");
 
@@ -487,7 +511,7 @@ public class GitTagTrigger extends Trigger<Item> {
                 additionalActions = actions;
             }
         }
-        
+
         /**
          * Where the log file is written.
          */
@@ -703,4 +727,15 @@ public class GitTagTrigger extends Trigger<Item> {
      * How long is too long for a polling activity to be in the queue?
      */
     public static long STARVATION_THRESHOLD =Long.getLong(GitTagTrigger.class.getName()+".starvationThreshold", TimeUnit2.HOURS.toMillis(1));
+
+    private class MyListener extends GitStatus.Listener {
+
+        public List<GitStatus.ResponseContributor> onNotifyCommit(String origin, URIish uri, @Nullable String sha1, List<ParameterValue> buildParameters, String... branches) {
+            System.out.println("origin = [" + origin + "], uri = [" + uri + "], sha1 = [" + sha1 + "], buildParameters = [" + buildParameters + "], branches = [" + branches + "]");
+            run();
+
+
+            return Arrays.asList((GitStatus.ResponseContributor) new GitStatus.MessageResponseContributor("Demo 111"));
+        }
+    }
 }
